@@ -1,0 +1,14 @@
+{
+  // Tailwind CSS v4 directives (@theme, @utility, @apply, @custom-variant) are not standard CSS.
+  // Associate CSS files with the Tailwind language mode (Tailwind CSS IntelliSense extension)
+  // and silence the built-in CSS linter for unknown at-rules.
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+  "css.lint.unknownAtRules": "ignore",
+  "tailwindCSS.experimental.classRegex": [["cn\\(([^)]*)\\)", "[\"'`]([^\"'`]*)[\"'`]"]],
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "editor.quickSuggestions": {
+    "strings": "on"
+  }
+}

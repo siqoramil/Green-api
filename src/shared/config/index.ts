@@ -1,0 +1,1 @@
+export { devCredentials } from './env'

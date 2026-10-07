@@ -1,0 +1,131 @@
+@import 'tailwindcss';
+
+/* Design tokens modeled after web.max.ru. Light by default, dark via system preference. */
+:root {
+  --accent: #0a7cff;
+  --accent-hover: #0068e0;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --surface-hover: #f4f5f8;
+  --surface-active: #e6efff;
+  --canvas: #e9ecf3;
+  --line: #e4e6eb;
+  --fg: #101114;
+  --fg-muted: #7a7f89;
+  --bubble-in: #ffffff;
+  --bubble-in-fg: #101114;
+  --bubble-out: #d8e8ff;
+  --bubble-out-fg: #101114;
+  --bubble-out-meta: #4f78b0;
+  --danger: #e5484d;
+  --pattern: rgb(10 60 140 / 0.05);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent: #0a84ff;
+    --accent-hover: #3b9bff;
+    --surface: #1b1c1f;
+    --surface-2: #26272b;
+    --surface-hover: #232428;
+    --surface-active: #2a3446;
+    --canvas: #111214;
+    --line: #2b2c31;
+    --fg: #f2f3f5;
+    --fg-muted: #8b8f98;
+    --bubble-in: #26272b;
+    --bubble-in-fg: #f2f3f5;
+    --bubble-out: #2a62d9;
+    --bubble-out-fg: #ffffff;
+    --bubble-out-meta: #c5d8ff;
+    --danger: #ff6369;
+    --pattern: rgb(140 150 255 / 0.05);
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-active: var(--surface-active);
+  --color-canvas: var(--canvas);
+  --color-line: var(--line);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-bubble-in: var(--bubble-in);
+  --color-bubble-in-fg: var(--bubble-in-fg);
+  --color-bubble-out: var(--bubble-out);
+  --color-bubble-out-fg: var(--bubble-out-fg);
+  --color-bubble-out-meta: var(--bubble-out-meta);
+  --color-danger: var(--danger);
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-fg antialiased;
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.35;
+    overflow: hidden;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+@utility chat-pattern {
+  background-color: var(--canvas);
+  background-image: radial-gradient(var(--pattern) 1.5px, transparent 1.5px),
+    radial-gradient(var(--pattern) 1.5px, transparent 1.5px);
+  background-size: 28px 28px;
+  background-position: 0 0, 14px 14px;
+}
+
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@utility animate-shimmer {
+  animation: shimmer 1.4s infinite;
+}
+
+@utility animate-fade-in {
+  animation: fade-in 0.18s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
