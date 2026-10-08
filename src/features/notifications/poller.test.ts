@@ -80,6 +80,28 @@ describe('runNotificationPoller', () => {
     expect(statuses).toEqual(['connecting', 'offline', 'online'])
   })
 
+  it('stops polling on fatal errors instead of retrying forever', async () => {
+    const controller = new AbortController()
+    const client = {
+      receiveNotification: vi.fn(async () => {
+        throw new GreenApiError('Неверный idInstance или apiTokenInstance', 'http', 401)
+      }),
+      deleteNotification: vi.fn(),
+    }
+    const statuses: string[] = []
+
+    await runNotificationPoller({
+      client,
+      signal: controller.signal,
+      onNotification: vi.fn(),
+      onStatusChange: (s) => statuses.push(s),
+      minRetryMs: 1,
+    })
+
+    expect(statuses).toEqual(['connecting', 'failed'])
+    expect(client.receiveNotification).toHaveBeenCalledTimes(1)
+  })
+
   it('reports online immediately after a successful health check', async () => {
     const controller = new AbortController()
     const statuses: string[] = []

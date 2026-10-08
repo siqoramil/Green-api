@@ -1,7 +1,6 @@
 import type { UseMutationResult } from '@tanstack/react-query'
 import { useChatStoreApi } from '@/entities/chat'
 import { useApiMutation } from '@/entities/session'
-import { GreenApiError } from '@/shared/api'
 import { formatPhone } from '@/shared/lib'
 
 const NOT_REGISTERED = 'Этот номер не зарегистрирован в MAX'
@@ -22,11 +21,7 @@ export function useCreateChat(onCreated?: (chatId: string) => void): CreateChatM
       const existing = Object.values(store.getState().chats).find((chat) => chat.phone === phone)
       if (existing) return existing.id
 
-      const result = await api.checkAccount(Number(phone)).catch((error: unknown) => {
-        // The instance is already authorized here, so 404 refers to the number, not the instance.
-        if (error instanceof GreenApiError && error.status === 404) throw new Error(NOT_REGISTERED)
-        throw error
-      })
+      const result = await api.checkAccount(Number(phone))
       if ('status' in result) throw new Error(result.reason || 'Не удалось проверить номер')
       if (!result.exist || !result.chatId) throw new Error(NOT_REGISTERED)
 

@@ -11,11 +11,13 @@ function ConnectionBanner() {
   const { status, error } = useConnectionStore(
     useShallow<ConnectionState, Pick<ConnectionState, 'status' | 'error'>>((s) => ({ status: s.status, error: s.error })),
   )
-  if (status !== 'offline' || !error) return null
+  if ((status !== 'offline' && status !== 'failed') || !error) return null
   return (
     <div role="alert" className="flex items-center gap-2 border-b border-line bg-danger/10 px-4 py-2 text-[13px] text-danger">
       <AlertIcon size={16} className="shrink-0" />
-      <span className="min-w-0 truncate">{error}. Повторяем попытку…</span>
+      <span className="min-w-0 truncate">
+        {status === 'failed' ? `${error}. Получение сообщений остановлено` : `${error}. Повторяем попытку…`}
+      </span>
     </div>
   )
 }

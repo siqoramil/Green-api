@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 
-export type ConnectionStatus = 'connecting' | 'online' | 'offline'
+/** `failed` — the poller stopped: retrying cannot help (wrong token, exhausted tariff). */
+export type ConnectionStatus = 'connecting' | 'online' | 'offline' | 'failed'
 
 export interface ConnectionState {
   status: ConnectionStatus

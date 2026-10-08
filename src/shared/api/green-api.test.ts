@@ -1,7 +1,7 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 import type { Notification } from './types'
 import { defined } from '@/test/utils'
-import { defaultApiUrl, GreenApiClient, GreenApiError, type FetchLike } from './green-api'
+import { defaultApiUrl, GreenApiClient, GreenApiError, isFatalApiError, type FetchLike } from './green-api'
 
 const credentials = {
   apiUrl: 'https://3100.api.green-api.com/',
@@ -22,6 +22,9 @@ describe('defaultApiUrl', () => {
 describe('GreenApiClient', () => {
   it('rejects api hosts outside green-api.com (token exfiltration guard)', () => {
     expect(() => new GreenApiClient({ ...credentials, apiUrl: 'https://evil.example.com' })).toThrow(GreenApiError)
+    expect(() => new GreenApiClient({ ...credentials, apiUrl: 'https://evil.example.com' })).toThrow(
+      expect.objectContaining({ kind: 'config' }),
+    )
     expect(() => new GreenApiClient({ ...credentials, apiUrl: 'http://3100.api.green-api.com' })).toThrow()
     expect(() => new GreenApiClient({ ...credentials, apiUrl: 'https://green-api.com.evil.io' })).toThrow()
   })
@@ -62,8 +65,69 @@ describe('GreenApiClient', () => {
     await expect(client.getStateInstance()).rejects.toMatchObject({
       kind: 'http',
       status: 401,
-      message: 'Неверный idInstance или apiTokenInstance',
+      message: 'Неверный idInstance или apiTokenInstance (HTTP 401)',
     })
+  })
+
+  it('keeps the server message next to the hint', async () => {
+    const body = JSON.stringify({ message: 'method not found' })
+    const client = new GreenApiClient(credentials, vi.fn<FetchLike>().mockResolvedValue(new Response(body, { status: 404 })))
+    await expect(client.checkAccount(79991234567)).rejects.toMatchObject({
+      status: 404,
+      message: expect.stringContaining('HTTP 404: method not found'),
+    })
+  })
+
+  it('drops HTML error pages and truncates long server messages', async () => {
+    const html = '<html><body><h1>502 Bad Gateway</h1></body></html>'
+    const htmlClient = new GreenApiClient(credentials, vi.fn<FetchLike>().mockResolvedValue(new Response(html, { status: 502 })))
+    await expect(htmlClient.getStateInstance()).rejects.toMatchObject({ message: 'Ошибка сервера (HTTP 502)' })
+
+    const long = JSON.stringify({ message: 'x'.repeat(500) })
+    const longClient = new GreenApiClient(credentials, vi.fn<FetchLike>().mockResolvedValue(new Response(long, { status: 400 })))
+    const error: unknown = await longClient.getStateInstance().catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(GreenApiError)
+    expect((error as GreenApiError).message.length).toBeLessThan(250)
+  })
+
+  it('reads the message from other JSON fields and never prints objects', async () => {
+    const respond = (body: unknown) =>
+      new GreenApiClient(credentials, vi.fn<FetchLike>().mockResolvedValue(new Response(JSON.stringify(body), { status: 400 })))
+    await expect(respond({ error: 'bad phone' }).getStateInstance()).rejects.toMatchObject({ message: 'bad phone (HTTP 400)' })
+    await expect(respond({ message: { nested: true } }).getStateInstance()).rejects.toMatchObject({
+      message: 'Ошибка сервера (HTTP 400)',
+    })
+  })
+
+  it('rejects an empty body for endpoints that must return data', async () => {
+    const client = new GreenApiClient(credentials, vi.fn<FetchLike>().mockResolvedValue(new Response('', { status: 200 })))
+    await expect(client.checkAccount(79991234567)).rejects.toMatchObject({ kind: 'http', message: 'Сервер вернул пустой ответ' })
+  })
+
+  it('classifies a timeout while the body is being read', async () => {
+    const fetchMock = vi.fn<FetchLike>((_url, init) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        text: () =>
+          new Promise<string>((_, reject) =>
+            init.signal?.addEventListener('abort', () => reject(new DOMException('Timed out', 'TimeoutError'))),
+          ),
+      } as unknown as Response),
+    )
+    const client = new GreenApiClient(credentials, fetchMock)
+    await expect(client.request('getStateInstance', { timeoutMs: 10 })).rejects.toMatchObject({ kind: 'timeout' })
+  })
+
+  it('treats auth and tariff errors as fatal', async () => {
+    const fail = (status: number) =>
+      new GreenApiClient(credentials, vi.fn<FetchLike>().mockResolvedValue(new Response('', { status })))
+        .getStateInstance()
+        .catch((e: unknown) => e)
+    expect(isFatalApiError(await fail(401))).toBe(true)
+    expect(isFatalApiError(await fail(466))).toBe(true)
+    expect(isFatalApiError(await fail(500))).toBe(false)
+    expect(isFatalApiError(new GreenApiError('offline', 'network'))).toBe(false)
   })
 
   it('reports network failures without leaking the URL/token', async () => {

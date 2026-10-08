@@ -7,7 +7,7 @@ import {
 } from './endpoints'
 import type { Credentials, SendMessageRequest } from './types'
 
-export type GreenApiErrorKind = 'http' | 'network' | 'timeout' | 'aborted'
+export type GreenApiErrorKind = 'http' | 'network' | 'timeout' | 'aborted' | 'config'
 
 export class GreenApiError extends Error {
   readonly kind: GreenApiErrorKind
@@ -24,6 +24,13 @@ export class GreenApiError extends Error {
 export const isAbortError = (error: unknown): boolean =>
   error instanceof GreenApiError && error.kind === 'aborted'
 
+/** Statuses that will not go away by retrying: wrong/revoked token or exhausted tariff. */
+const FATAL_HTTP_STATUSES: ReadonlySet<number> = new Set([401, 403, 466])
+
+export const isFatalApiError = (error: unknown): boolean =>
+  error instanceof GreenApiError &&
+  (error.kind === 'config' || (error.kind === 'http' && error.status !== undefined && FATAL_HTTP_STATUSES.has(error.status)))
+
 const DEFAULT_TIMEOUT_MS = 15_000
 
 /**
@@ -35,30 +42,59 @@ export function defaultApiUrl(idInstance: string): string {
   return prefix.length === 4 ? `https://${prefix}.api.green-api.com` : 'https://api.green-api.com'
 }
 
-function describeHttpError(status: number, body: string): string {
-  let detail = body.trim()
+const MAX_DETAIL_LENGTH = 200
+
+/** Extracts a short human-readable message from an error body (JSON, plain text or an HTML error page). */
+function extractDetail(body: string): string {
+  const text = body.trim()
+  // HTML error pages from proxies (502/504) are useless to the user and can be huge.
+  if (!text || text.startsWith('<')) return ''
+
+  let detail = text
   try {
-    const parsed: unknown = JSON.parse(detail)
-    if (isRecord(parsed) && 'message' in parsed) detail = String(parsed['message'])
+    const parsed: unknown = JSON.parse(text)
+    if (isRecord(parsed)) {
+      const field = ['message', 'reason', 'error'].map((key) => parsed[key]).find((v) => typeof v === 'string' && v.trim())
+      detail = typeof field === 'string' ? field.trim() : ''
+    }
   } catch {
     // plain-text body — use as is
   }
+  return detail.length > MAX_DETAIL_LENGTH ? `${detail.slice(0, MAX_DETAIL_LENGTH)}…` : detail
+}
 
-  switch (status) {
-    case 401:
-    case 403:
-      return 'Неверный idInstance или apiTokenInstance'
-    case 404:
-      return 'Инстанс не найден. Проверьте idInstance и apiUrl'
-    case 429:
-      return 'Слишком много запросов. Повторите попытку позже'
-    case 466:
-      return 'Превышены лимиты тарифа GREEN-API'
-    case 469:
-      return 'Слишком много проверок номеров. Подождите несколько минут'
-    default:
-      return detail || `Ошибка сервера (HTTP ${status})`
+function describeHttpError(status: number, body: string): string {
+  const detail = extractDetail(body)
+  const hint = HTTP_ERROR_HINTS[status]
+  if (!hint) return detail ? `${detail} (HTTP ${status})` : `Ошибка сервера (HTTP ${status})`
+  // Keep the server's own message visible: the hint is only our guess about the cause.
+  return detail ? `${hint} (HTTP ${status}: ${detail})` : `${hint} (HTTP ${status})`
+}
+
+const HTTP_ERROR_HINTS: Partial<Record<number, string>> = {
+  401: 'Неверный idInstance или apiTokenInstance',
+  403: 'Неверный idInstance или apiTokenInstance',
+  404: 'Инстанс или метод не найден. Проверьте idInstance, apiUrl и тип инстанса (MAX)',
+  429: 'Слишком много запросов. Повторите попытку позже',
+  466: 'Превышены лимиты тарифа GREEN-API',
+  469: 'Слишком много проверок номеров. Подождите несколько минут',
+}
+
+/** Endpoints for which an empty body is a valid answer (an empty notification queue). */
+const NULLABLE_RESPONSES: ReadonlySet<EndpointName> = new Set<EndpointName>(['receiveNotification'])
+
+/** `AbortSignal.any` with a fallback for browsers that lack it (Safari < 17.4). */
+function anySignal(signals: AbortSignal[]): AbortSignal {
+  if (typeof AbortSignal.any === 'function') return AbortSignal.any(signals)
+  const controller = new AbortController()
+  for (const signal of signals) {
+    if (signal.aborted) {
+      controller.abort(signal.reason)
+      break
+    }
+    signal.addEventListener('abort', () => controller.abort(signal.reason), { once: true })
   }
+  return controller.signal
 }
 
 export type FetchLike = (input: string, init: RequestInit) => Promise<Response>
@@ -83,7 +119,7 @@ export class GreenApiClient {
   constructor(credentials: Credentials, fetchImpl: FetchLike = (input, init) => fetch(input, init)) {
     // Defense in depth: never send the token anywhere except GREEN-API hosts.
     if (!isAllowedApiUrl(credentials.apiUrl)) {
-      throw new GreenApiError('Недопустимый apiUrl: разрешены только https://*.green-api.com', 'http')
+      throw new GreenApiError('Недопустимый apiUrl: разрешены только https://*.green-api.com', 'config')
     }
     this.credentials = credentials
     this.fetchImpl = fetchImpl
@@ -121,7 +157,7 @@ export class GreenApiClient {
   async request<N extends EndpointName>(name: N, options: EndpointOptions<N>): Promise<EndpointResponse<N>> {
     const { body, query, path, signal, timeoutMs = DEFAULT_TIMEOUT_MS } = options as AnyEndpointOptions
     const timeoutSignal = AbortSignal.timeout(timeoutMs)
-    const combined = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal
+    const combined = signal ? anySignal([signal, timeoutSignal]) : timeoutSignal
 
     const init: RequestInit = {
       method: ENDPOINT_METHODS[name],
@@ -137,20 +173,25 @@ export class GreenApiClient {
     }
 
     let response: Response
+    let text: string
     try {
       response = await this.fetchImpl(this.buildUrl(name, path, query), init)
+      // Reading the body is part of the request: the timeout or an abort may fire here too.
+      text = await response.text()
     } catch {
       if (signal?.aborted) throw new GreenApiError('Запрос отменён', 'aborted')
       if (timeoutSignal.aborted) throw new GreenApiError('Превышено время ожидания ответа', 'timeout')
       throw new GreenApiError('Нет соединения с сервером GREEN-API', 'network')
     }
 
-    const text = await response.text()
     if (!response.ok) {
       throw new GreenApiError(describeHttpError(response.status, text), 'http', response.status)
     }
 
-    if (!text || text === 'null') return null as EndpointResponse<N>
+    if (!text.trim() || text.trim() === 'null') {
+      if (NULLABLE_RESPONSES.has(name)) return null as EndpointResponse<N>
+      throw new GreenApiError('Сервер вернул пустой ответ', 'http', response.status)
+    }
     try {
       return JSON.parse(text) as EndpointResponse<N>
     } catch {

@@ -14,7 +14,8 @@ const matchChat = (chat: Chat, query: string): boolean => {
 }
 
 function SidebarTitle({ status }: { status: ConnectionStatus }) {
-  if (status === 'online') return <>Чаты</>
+  // `failed` is explained by the connection banner; a spinner would promise a recovery that will not happen.
+  if (status === 'online' || status === 'failed') return <>Чаты</>
   return (
     <>
       <Spinner className="size-5 text-fg-muted" label="Подключение" />

@@ -1,5 +1,5 @@
 import type { ConnectionStatus } from '@/entities/session'
-import { isAbortError, type GreenApiClient, type Notification } from '@/shared/api'
+import { isAbortError, isFatalApiError, type GreenApiClient, type Notification } from '@/shared/api'
 
 export interface PollerOptions {
   client: Pick<GreenApiClient, 'receiveNotification' | 'deleteNotification'>
@@ -17,6 +17,8 @@ export interface PollerOptions {
   minRetryMs?: number
   maxRetryMs?: number
 }
+
+const toError = (error: unknown): Error => (error instanceof Error ? error : new Error(String(error)))
 
 const sleep = (ms: number, signal: AbortSignal) =>
   new Promise<void>((resolve) => {
@@ -36,6 +38,7 @@ const sleep = (ms: number, signal: AbortSignal) =>
  * - If deletion fails the same notification is delivered again; handlers are
  *   idempotent (messages are deduplicated by idMessage), so this is safe.
  * - Network/HTTP errors are retried with exponential backoff.
+ * - Fatal errors (wrong token, exhausted tariff) stop the loop with the `failed` status.
  */
 export async function runNotificationPoller({
   client,
@@ -61,7 +64,8 @@ export async function runNotificationPoller({
       setStatus('online')
     } catch (error) {
       if (signal.aborted || isAbortError(error)) return
-      setStatus('offline', error instanceof Error ? error : new Error(String(error)))
+      if (isFatalApiError(error)) return setStatus('failed', toError(error))
+      setStatus('offline', toError(error))
     }
   }
 
@@ -81,7 +85,8 @@ export async function runNotificationPoller({
       }
     } catch (error) {
       if (signal.aborted || isAbortError(error)) break
-      setStatus('offline', error instanceof Error ? error : new Error(String(error)))
+      if (isFatalApiError(error)) return setStatus('failed', toError(error))
+      setStatus('offline', toError(error))
       await sleep(retryMs, signal)
       retryMs = Math.min(retryMs * 2, maxRetryMs)
     }
