@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatPhone, isSupportedMaxPhone, isValidPhone, normalizePhone } from './phone'
+import { formatPhone, formatPhoneInput, isSupportedMaxPhone, isValidPhone, normalizePhone } from './phone'
 import { splitLinks } from './linkify'
 import { isAllowedApiUrl, isValidApiToken, isValidIdInstance } from './validation'
 
@@ -27,6 +27,20 @@ describe('phone', () => {
     expect(formatPhone('79991234567')).toBe('+7 999 123-45-67')
     expect(formatPhone('375291234567')).toBe('+375 29 123-45-67')
     expect(formatPhone('998901234567')).toBe('+998901234567')
+  })
+
+  it('formats a phone while it is being typed', () => {
+    expect(formatPhoneInput('')).toBe('')
+    expect(formatPhoneInput('7')).toBe('+7')
+    expect(formatPhoneInput('7999')).toBe('+7 999')
+    expect(formatPhoneInput('7999123')).toBe('+7 999 123')
+    expect(formatPhoneInput('79991234')).toBe('+7 999 123-4')
+    expect(formatPhoneInput('+7 (999) 123-45-67')).toBe('+7 999 123-45-67')
+    expect(formatPhoneInput('89991234567')).toBe('+7 999 123-45-67')
+    expect(formatPhoneInput('7999123456789')).toBe('+7 999 123-45-67')
+    expect(formatPhoneInput('37')).toBe('+37')
+    expect(formatPhoneInput('375291234567')).toBe('+375 29 123-45-67')
+    expect(formatPhoneInput('998901234567')).toBe('+998901234567')
   })
 })
 

@@ -25,3 +25,34 @@ export function formatPhone(normalized: string): string {
   if (by) return `+375 ${by[1]} ${by[2]}-${by[3]}-${by[4]}`
   return normalized ? `+${normalized}` : ''
 }
+
+/** Digit group sizes and the separator placed before each group, per supported country code. */
+const INPUT_MASKS = [
+  { code: '375', groups: [3, 2, 3, 2, 2], separators: ['+', ' ', ' ', '-', '-'] },
+  { code: '7', groups: [1, 3, 3, 2, 2], separators: ['+', ' ', ' ', '-', '-'] },
+] as const
+
+const MAX_INTERNATIONAL_DIGITS = 15
+
+/**
+ * Formats a phone while it is being typed: `7999123` → `+7 999 123`, `79991234567` → `+7 999 123-45-67`.
+ * A leading trunk `8` becomes `7`. Numbers of other countries are shown as `+<digits>`.
+ */
+export function formatPhoneInput(value: string): string {
+  let digits = digitsOnly(value)
+  if (!digits) return ''
+  if (digits.startsWith('8')) digits = `7${digits.slice(1)}`
+
+  // '3' and '37' are prefixes of '375' — format them with the BY mask while it is still being typed.
+  const mask = INPUT_MASKS.find(({ code }) => digits.startsWith(code) || code.startsWith(digits))
+  if (!mask) return `+${digits.slice(0, MAX_INTERNATIONAL_DIGITS)}`
+
+  let result = ''
+  let offset = 0
+  mask.groups.forEach((size, index) => {
+    if (offset >= digits.length) return
+    result += mask.separators[index] + digits.slice(offset, offset + size)
+    offset += size
+  })
+  return result
+}

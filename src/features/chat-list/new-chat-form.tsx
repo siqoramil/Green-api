@@ -1,5 +1,5 @@
 import { useId, useState, type SubmitEvent } from 'react'
-import { isSupportedMaxPhone, isValidPhone, normalizePhone } from '@/shared/lib'
+import { digitsOnly, formatPhoneInput, isSupportedMaxPhone, isValidPhone, normalizePhone } from '@/shared/lib'
 import { AlertIcon, BackIcon, IconButton, Spinner } from '@/shared/ui'
 import { useCreateChat } from './use-create-chat'
 
@@ -12,6 +12,12 @@ export function NewChatForm({ onClose }: NewChatFormProps) {
   const [phone, setPhone] = useState<string>('')
   const [validationError, setValidationError] = useState<string | null>(null)
   const mutation = useCreateChat(onClose)
+
+  const onPhoneChange = (next: string) => {
+    // Deleting a separator ("-" or " ") must delete the digit before it, otherwise the mask restores it at once.
+    const removedSeparator = next.length < phone.length && digitsOnly(next) === digitsOnly(phone)
+    setPhone(formatPhoneInput(removedSeparator ? digitsOnly(next).slice(0, -1) : next))
+  }
 
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -52,7 +58,7 @@ export function NewChatForm({ onClose }: NewChatFormProps) {
           autoComplete="off"
           placeholder="+7 999 123-45-67"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          onChange={(e) => onPhoneChange(e.target.value)}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? `${id}-error` : `${id}-hint`}
           className="w-full rounded-xl border border-transparent bg-surface-2 px-4 py-3 outline-none transition placeholder:text-fg-muted focus:border-accent aria-invalid:border-danger"
