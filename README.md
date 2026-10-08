@@ -14,7 +14,7 @@
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-38bdf8?logo=tailwindcss&logoColor=white)
 ![TanStack Query](https://img.shields.io/badge/TanStack_Query-5-ff4154?logo=reactquery&logoColor=white)
 ![Zustand](https://img.shields.io/badge/Zustand-5-443e38)
-![Tests](https://img.shields.io/badge/tests-57_passed-2ea44f?logo=vitest&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-58_passed-2ea44f?logo=vitest&logoColor=white)
 
 [Демо](#-демо) · [Быстрый старт](#-быстрый-старт) · [Как проверить](#-как-проверить) · [Архитектура](#-архитектура) · [Безопасность](#-безопасность)
 
@@ -315,7 +315,7 @@ const remember = useSessionStore<boolean>((s) => s.remember)
 yarn validate    # typecheck + lint + test
 ```
 
-**57 тестов**, включая проверки типов:
+**58 тестов**, включая проверки типов:
 
 | Область | Что проверяется |
 | --- | --- |

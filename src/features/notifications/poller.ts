@@ -13,6 +13,12 @@ export interface PollerOptions {
   healthCheck?: (signal: AbortSignal) => Promise<unknown>
   /** Long-poll window in seconds (5–60). */
   receiveTimeout?: number
+  /**
+   * Minimum time between two receiveNotification calls when the queue is empty.
+   * Some instances answer an empty queue at once instead of holding the long poll,
+   * which would otherwise turn the loop into ~10 requests per second.
+   */
+  minPollIntervalMs?: number
   /** Backoff bounds for consecutive errors. */
   minRetryMs?: number
   maxRetryMs?: number
@@ -22,6 +28,7 @@ const toError = (error: unknown): Error => (error instanceof Error ? error : new
 
 const sleep = (ms: number, signal: AbortSignal) =>
   new Promise<void>((resolve) => {
+    if (signal.aborted || ms <= 0) return resolve()
     const timer = setTimeout(resolve, ms)
     signal.addEventListener('abort', () => {
       clearTimeout(timer)
@@ -37,6 +44,7 @@ const sleep = (ms: number, signal: AbortSignal) =>
  *   notification can never block the queue.
  * - If deletion fails the same notification is delivered again; handlers are
  *   idempotent (messages are deduplicated by idMessage), so this is safe.
+ * - An empty queue is polled at most once per `minPollIntervalMs`.
  * - Network/HTTP errors are retried with exponential backoff.
  * - Fatal errors (wrong token, exhausted tariff) stop the loop with the `failed` status.
  */
@@ -47,6 +55,7 @@ export async function runNotificationPoller({
   signal,
   healthCheck,
   receiveTimeout = 20,
+  minPollIntervalMs = 1_000,
   minRetryMs = 1_000,
   maxRetryMs = 30_000,
 }: PollerOptions): Promise<void> {
@@ -71,10 +80,14 @@ export async function runNotificationPoller({
 
   while (!signal.aborted) {
     try {
+      const startedAt = Date.now()
       const notification = await client.receiveNotification(receiveTimeout, signal)
       setStatus('online')
       retryMs = minRetryMs
-      if (!notification) continue
+      if (!notification) {
+        await sleep(minPollIntervalMs - (Date.now() - startedAt), signal)
+        continue
+      }
 
       try {
         onNotification(notification)

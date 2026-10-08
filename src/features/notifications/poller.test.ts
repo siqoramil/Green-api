@@ -80,6 +80,24 @@ describe('runNotificationPoller', () => {
     expect(statuses).toEqual(['connecting', 'offline', 'online'])
   })
 
+  it('throttles an empty queue that the server answers immediately', async () => {
+    vi.useFakeTimers()
+    const controller = new AbortController()
+    const client = {
+      receiveNotification: vi.fn(async () => null),
+      deleteNotification: vi.fn(),
+    }
+
+    const done = runNotificationPoller({ client, signal: controller.signal, onNotification: vi.fn() })
+    await vi.advanceTimersByTimeAsync(3_000)
+    controller.abort()
+    await done
+    vi.useRealTimers()
+
+    // One call right away plus one per second, not hundreds.
+    expect(client.receiveNotification.mock.calls.length).toBeLessThanOrEqual(4)
+  })
+
   it('stops polling on fatal errors instead of retrying forever', async () => {
     const controller = new AbortController()
     const client = {
