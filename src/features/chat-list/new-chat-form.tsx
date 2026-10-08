@@ -35,6 +35,9 @@ export function NewChatForm({ onClose }: NewChatFormProps) {
     }
     const formatted = formatPhoneInput(digits)
     setPhone(formatted)
+    // An error about the previous number is misleading once the user edits it.
+    setValidationError(null)
+    if (mutation.isError) mutation.reset()
     requestAnimationFrame(() => {
       const position = caretAfterDigits(formatted, digitsBeforeCaret)
       input.setSelectionRange(position, position)
@@ -44,6 +47,10 @@ export function NewChatForm({ onClose }: NewChatFormProps) {
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault()
     const normalized = normalizePhone(phone)
+    if (/^9\d{9}$/.test(normalized)) {
+      setValidationError('Добавьте код страны: +7 999 123-45-67')
+      return
+    }
     if (!isValidPhone(normalized)) {
       setValidationError('Введите номер в международном формате: 11–12 цифр')
       return
