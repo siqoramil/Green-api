@@ -3,6 +3,16 @@ import { digitsOnly, formatPhoneInput, isSupportedMaxPhone, isValidPhone, normal
 import { AlertIcon, BackIcon, IconButton, Spinner } from '@/shared/ui'
 import { useCreateChat } from './use-create-chat'
 
+/** Position in a formatted phone right after its `count`-th digit. */
+function caretAfterDigits(formatted: string, count: number): number {
+  if (count <= 0) return formatted.startsWith('+') ? 1 : 0
+  let seen = 0
+  for (let index = 0; index < formatted.length; index++) {
+    if (/\d/.test(formatted.charAt(index)) && ++seen === count) return index + 1
+  }
+  return formatted.length
+}
+
 interface NewChatFormProps {
   onClose: () => void
 }
@@ -13,10 +23,22 @@ export function NewChatForm({ onClose }: NewChatFormProps) {
   const [validationError, setValidationError] = useState<string | null>(null)
   const mutation = useCreateChat(onClose)
 
-  const onPhoneChange = (next: string) => {
+  const onPhoneChange = (input: HTMLInputElement) => {
+    const raw = input.value
+    let digits = digitsOnly(raw)
+    // The caret is tracked by the number of digits before it: the mask moves separators around it.
+    let digitsBeforeCaret = digitsOnly(raw.slice(0, input.selectionStart ?? raw.length)).length
     // Deleting a separator ("-" or " ") must delete the digit before it, otherwise the mask restores it at once.
-    const removedSeparator = next.length < phone.length && digitsOnly(next) === digitsOnly(phone)
-    setPhone(formatPhoneInput(removedSeparator ? digitsOnly(next).slice(0, -1) : next))
+    if (raw.length < phone.length && digits === digitsOnly(phone) && digitsBeforeCaret > 0) {
+      digits = digits.slice(0, digitsBeforeCaret - 1) + digits.slice(digitsBeforeCaret)
+      digitsBeforeCaret -= 1
+    }
+    const formatted = formatPhoneInput(digits)
+    setPhone(formatted)
+    requestAnimationFrame(() => {
+      const position = caretAfterDigits(formatted, digitsBeforeCaret)
+      input.setSelectionRange(position, position)
+    })
   }
 
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
@@ -58,7 +80,7 @@ export function NewChatForm({ onClose }: NewChatFormProps) {
           autoComplete="off"
           placeholder="+7 999 123-45-67"
           value={phone}
-          onChange={(e) => onPhoneChange(e.target.value)}
+          onChange={(e) => onPhoneChange(e.currentTarget)}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? `${id}-error` : `${id}-hint`}
           className="w-full rounded-xl border border-transparent bg-surface-2 px-4 py-3 outline-none transition placeholder:text-fg-muted focus:border-accent aria-invalid:border-danger"
