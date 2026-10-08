@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatPhone, isValidPhone, normalizePhone } from './phone'
+import { formatPhone, isSupportedMaxPhone, isValidPhone, normalizePhone } from './phone'
 import { splitLinks } from './linkify'
 import { isAllowedApiUrl, isValidApiToken, isValidIdInstance } from './validation'
 
@@ -14,6 +14,13 @@ describe('phone', () => {
     expect(isValidPhone('79991234567')).toBe(true)
     expect(isValidPhone('375291234567')).toBe(true)
     expect(isValidPhone('12345')).toBe(false)
+  })
+
+  it('accepts only RU and BY numbers for MAX', () => {
+    expect(isSupportedMaxPhone('79991234567')).toBe(true)
+    expect(isSupportedMaxPhone('375291234567')).toBe(true)
+    expect(isSupportedMaxPhone('998886556169')).toBe(false)
+    expect(isSupportedMaxPhone('7999123456')).toBe(false)
   })
 
   it('formats for display', () => {

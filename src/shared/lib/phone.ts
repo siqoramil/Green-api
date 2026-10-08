@@ -14,6 +14,9 @@ export function normalizePhone(value: string): string {
 
 export const isValidPhone = (normalized: string): boolean => /^\d{11,12}$/.test(normalized)
 
+/** GREEN-API for MAX checks only Russian (+7) and Belarusian (+375) numbers in CheckAccount. */
+export const isSupportedMaxPhone = (normalized: string): boolean => /^(7\d{10}|375\d{9})$/.test(normalized)
+
 /** Formats a normalized phone for display: `79991234567` → `+7 999 123-45-67`. */
 export function formatPhone(normalized: string): string {
   const ru = /^7(\d{3})(\d{3})(\d{2})(\d{2})$/.exec(normalized)

@@ -54,6 +54,8 @@ function describeHttpError(status: number, body: string): string {
       return 'Слишком много запросов. Повторите попытку позже'
     case 466:
       return 'Превышены лимиты тарифа GREEN-API'
+    case 469:
+      return 'Слишком много проверок номеров. Подождите несколько минут'
     default:
       return detail || `Ошибка сервера (HTTP ${status})`
   }

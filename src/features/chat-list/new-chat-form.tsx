@@ -1,5 +1,5 @@
 import { useId, useState, type SubmitEvent } from 'react'
-import { isValidPhone, normalizePhone } from '@/shared/lib'
+import { isSupportedMaxPhone, isValidPhone, normalizePhone } from '@/shared/lib'
 import { AlertIcon, BackIcon, IconButton, Spinner } from '@/shared/ui'
 import { useCreateChat } from './use-create-chat'
 
@@ -18,6 +18,10 @@ export function NewChatForm({ onClose }: NewChatFormProps) {
     const normalized = normalizePhone(phone)
     if (!isValidPhone(normalized)) {
       setValidationError('Введите номер в международном формате: 11–12 цифр')
+      return
+    }
+    if (!isSupportedMaxPhone(normalized)) {
+      setValidationError('GREEN-API для MAX проверяет только номера РФ (+7) и РБ (+375)')
       return
     }
     setValidationError(null)
