@@ -86,8 +86,8 @@
 **Требования:** Node.js ≥ 22 (рекомендуется 24, см. `.nvmrc`) и Yarn 1.x.
 
 ```bash
-git clone https://github.com/siqoramil/Green-api.git
-cd Green-api
+git clone https://github.com/siqoramil/Green-api.git Test_Green-API
+cd Test_Green-API
 yarn install
 yarn dev
 ```
