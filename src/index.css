@@ -16,7 +16,8 @@
   --bubble-in-fg: #101114;
   --bubble-out: #d8e8ff;
   --bubble-out-fg: #101114;
-  --bubble-out-meta: #4f78b0;
+  --bubble-out-meta: #5f7ea8;
+  --bubble-out-read: #0a7cff;
   --danger: #e5484d;
   --pattern: rgb(10 60 140 / 0.05);
   color-scheme: light;
@@ -38,7 +39,8 @@
     --bubble-in-fg: #f2f3f5;
     --bubble-out: #2a62d9;
     --bubble-out-fg: #ffffff;
-    --bubble-out-meta: #c5d8ff;
+    --bubble-out-meta: rgb(255 255 255 / 0.62);
+    --bubble-out-read: #ffffff;
     --danger: #ff6369;
     --pattern: rgb(140 150 255 / 0.05);
     color-scheme: dark;
@@ -61,6 +63,7 @@
   --color-bubble-out: var(--bubble-out);
   --color-bubble-out-fg: var(--bubble-out-fg);
   --color-bubble-out-meta: var(--bubble-out-meta);
+  --color-bubble-out-read: var(--bubble-out-read);
   --color-danger: var(--danger);
   --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }

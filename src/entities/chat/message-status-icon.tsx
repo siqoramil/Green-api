@@ -21,7 +21,7 @@ export function MessageStatusIcon({ status, tone = 'bubble' }: MessageStatusIcon
   const label = LABELS[status]
   if (!label) return null
 
-  const readColor = tone === 'list' ? 'text-accent' : 'text-bubble-out-meta'
+  const readColor = tone === 'list' ? 'text-accent' : 'text-bubble-out-read'
   const icon = {
     pending: <ClockIcon size={14} />,
     sent: <CheckIcon size={15} />,
